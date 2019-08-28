@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-namespace FMLib.ThreadFlowControl
+﻿namespace Utils
 {
   /// <summary>
-  /// Represents something like <see cref="CancellationToken"/> but extended with methods for Resume and Pause
+  /// Class gives controls on thread execution with methods: Cancel, Pause, Resume, Wait
   /// </summary>
   public class ThreadFlowControl
   {
@@ -23,19 +20,17 @@ namespace FMLib.ThreadFlowControl
     /// <summary>
     /// Determines if object was disposed
     /// </summary>
-    private bool m_isDisposed = false;
+    private Flag m_isDisposed;
 
     /// <summary>
     /// Dispose unmanaged resources
     /// </summary>
     public void Dispose()
     {
-      if (m_isDisposed) { return; }
-      m_isDisposed = true;
+      if (m_isDisposed.CheckThenSet()) { return; }
 
       Cancel();
       m_token.Dispose();
-      //m_token = null;
     }
 
     /// <summary>
@@ -53,10 +48,9 @@ namespace FMLib.ThreadFlowControl
     /// <summary>
     /// Gets token that will help to control threads behavior
     /// </summary>
-    /// <returns></returns>
     public ThreadFlowControlToken GetToken()
     {
-      return new ThreadFlowControlToken(m_token ?? (m_token = new ThreadFlowControlTokenShared()));
+      return new ThreadFlowControlToken(m_token);
     }
 
     /// <summary>

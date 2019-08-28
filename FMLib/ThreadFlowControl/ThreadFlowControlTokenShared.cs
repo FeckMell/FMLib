@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
+﻿using System.Threading;
 
-namespace FMLib.ThreadFlowControl
+namespace Utils
 {
   /// <summary>
   /// Token for wait handle
@@ -40,19 +37,18 @@ namespace FMLib.ThreadFlowControl
     /// <summary>
     /// Determines if object was disposed
     /// </summary>
-    private bool m_isDisposed = false;
+    private Flag m_isDisposed;
     private int m_lockCounter = 0;
-    private ManualResetEvent m_disposeSignal = new ManualResetEvent(false);
+    private ManualResetEvent m_disposeSignal = new ManualResetEvent(true);
 
     /// <summary>
     /// Dispose unmanaged resources
     /// </summary>
     internal void Dispose()
     {
-      if (m_isDisposed) { return; }
-      m_isDisposed = true;
+      if (m_isDisposed.CheckThenSet()) { return; }
 
-      if (WaitHandle.WaitAny(new WaitHandle[] { m_disposeSignal }, 1000) == WaitHandle.WaitTimeout) { Tracer.Create().Warning($"Exited dispose lock due to timeout: {m_lockCounter}"); }
+      if (WaitHandle.WaitAny(new WaitHandle[] { m_disposeSignal }, 1000) == WaitHandle.WaitTimeout) { Tracer._SystemError($"Exited dispose lock due to timeout: {m_lockCounter}"); }
       m_disposeSignal.Dispose();
       m_cancelSignal.Dispose();
       m_pauseSignal.Dispose();
@@ -77,7 +73,6 @@ namespace FMLib.ThreadFlowControl
     /// <summary>
     /// Sets isPaused field of this
     /// </summary>
-    /// <param name="value"></param>
     /// <remarks>MUST BE INTERNAL and can't be used outside from <see cref="ThreadFlowControl"/>!</remarks>
     internal void SetIsPaused(bool value)
     {
@@ -87,7 +82,6 @@ namespace FMLib.ThreadFlowControl
     /// <summary>
     /// Sets isCanceled field of this
     /// </summary>
-    /// <param name="value"></param>
     /// <remarks>MUST BE INTERNAL and can't be used outside from <see cref="ThreadFlowControl"/>!</remarks>
     internal void SetIsCanceled(bool value)
     {
@@ -98,7 +92,6 @@ namespace FMLib.ThreadFlowControl
     /// Sets or resets SignalState of PauseSignal.
     /// true - set; false = reset
     /// </summary>
-    /// <param name="isSet"></param>
     /// <remarks>MUST BE INTERNAL and can't be used outside from <see cref="ThreadFlowControl"/>!</remarks>
     internal void SetPausedSignalState(bool isSet)
     {
@@ -109,7 +102,6 @@ namespace FMLib.ThreadFlowControl
     /// Sets or resets SignalState of CancelSignal.
     /// true - set; false = reset
     /// </summary>
-    /// <param name="isSet"></param>
     /// <remarks>MUST BE INTERNAL and can't be used outside from <see cref="ThreadFlowControl"/>!</remarks>
     internal void SetCanceledSignalState(bool isSet)
     {
@@ -119,7 +111,6 @@ namespace FMLib.ThreadFlowControl
     /// <summary>
     /// Waits for time to be passed. Or cancel is signaled
     /// </summary>
-    /// <param name="time"></param>
     /// <returns>false when canceled</returns>
     /// <remarks>MUST BE INTERNAL and can't be used outside from <see cref="ThreadFlowControl"/>!</remarks>
     internal bool WaitForTimer(WaitHandle personalCancellation, int time)
@@ -161,7 +152,6 @@ namespace FMLib.ThreadFlowControl
     /// <summary>
     /// Waits to be canceled
     /// </summary>
-    /// <param name="personalCancellation"></param>
     /// <remarks>MUST BE INTERNAL and can't be used outside from <see cref="ThreadFlowControl"/>!</remarks>
     internal void WaitToBeCanceled(WaitHandle personalCancellation)
     {
@@ -190,8 +180,9 @@ namespace FMLib.ThreadFlowControl
     {
       m_lockCounter--;
       if (m_lockCounter == 0) { m_disposeSignal.Set(); }
-      else if (m_lockCounter < 0) { Tracer.Create().Info($"lock counter is below zero: {m_lockCounter}"); m_disposeSignal.Set(); }
+      else if (m_lockCounter < 0) { Tracer._SystemError($"lock counter is below zero: {m_lockCounter}"); m_disposeSignal.Set(); }
     }
+
     #endregion
 
   }

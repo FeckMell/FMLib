@@ -1,26 +1,27 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
+﻿using System.Threading;
 
-namespace FMLib.ThreadFlowControl
+namespace Utils
 {
-  /// <summary>
-  /// Result of wait
-  /// </summary>
-  public enum WaitResult
-  {
-    /// <summary> Wait finished due to canceling </summary>
-    Canceled,
-    /// <summary> Wait finished normally </summary>
-    NotCanceled
-  }
-
   /// <summary>
   /// Token used to be passed to thread for it flow control.
   /// </summary>
   public class ThreadFlowControlToken
   {
+
+    #region Helper classes
+
+    /// <summary>
+    /// Result of wait
+    /// </summary>
+    public enum WaitResult
+    {
+      /// <summary> Wait finished due to canceling </summary>
+      Canceled,
+      /// <summary> Wait finished normally </summary>
+      NotCanceled
+    }
+
+    #endregion
 
     #region Fields
 
@@ -46,15 +47,14 @@ namespace FMLib.ThreadFlowControl
     /// <summary>
     /// Determines if object was disposed
     /// </summary>
-    private bool m_isDisposed = false;
+    private Flag m_isDisposed;
 
     /// <summary>
     /// Dispose unmanaged resources
     /// </summary>
     public void Dispose()
     {
-      if (m_isDisposed) { return; }
-      m_isDisposed = true;
+      if (m_isDisposed.CheckThenSet()) { return; }
 
       if (m_isChild) { return; }
       CancelThis();
@@ -64,7 +64,6 @@ namespace FMLib.ThreadFlowControl
     /// <summary>
     /// Constructor
     /// </summary>
-    /// <param name="shared"></param>
     /// <remarks>MUST BE INTERNAL and can't be used outside from ThreadFlowControl!</remarks>
     internal ThreadFlowControlToken(ThreadFlowControlTokenShared shared)
     {
@@ -75,7 +74,6 @@ namespace FMLib.ThreadFlowControl
     /// <summary>
     /// Constructor for child token
     /// </summary>
-    /// <param name="threadFlowControlToken"></param>
     private ThreadFlowControlToken(ThreadFlowControlToken threadFlowControlToken)
     {
       m_isChild = true;
@@ -90,7 +88,6 @@ namespace FMLib.ThreadFlowControl
     /// <summary>
     /// Creates child token from this one. The only difference from parent is that it is not disposed on <see cref="ThreadFlowControlToken.Dispose"/> called
     /// </summary>
-    /// <returns></returns>
     public ThreadFlowControlToken MakeChild()
     {
       return new ThreadFlowControlToken(this);
@@ -99,7 +96,6 @@ namespace FMLib.ThreadFlowControl
     /// <summary>
     /// Waits for timer or to be canceled. Implemented in <see cref="ThreadFlowControlTokenShared"/>
     /// </summary>
-    /// <param name="time"></param>
     /// <returns> FALSE when canceled </returns>
     public WaitResult WaitForTimer(int time)
     {

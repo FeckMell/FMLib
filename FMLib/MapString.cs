@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-namespace FMLib
+
+namespace Utils
 {
   /// <summary>
-  /// Class representing mapping strings values to <see cref="T"/> element
+  /// Class representing mapping strings values to T element
   /// </summary>
   /// <typeparam name="T"></typeparam>
-  public class StringMap<T> where T : class
+  public class MapString<T> where T : class
   {
 
     #region Fields
@@ -24,15 +25,14 @@ namespace FMLib
     /// <summary>
     /// Determines if object was disposed
     /// </summary>
-    private bool m_isDisposed = false;
+    private Flag m_isDisposed;
 
     /// <summary>
     /// Dispose unmanaged resources
     /// </summary>
     public void Dispose()
     {
-      if (m_isDisposed) { return; }
-      m_isDisposed = true;
+      if (m_isDisposed.CheckThenSet()) { return; }
 
       m_map.Clear();
     }
@@ -40,7 +40,7 @@ namespace FMLib
     /// <summary>
     /// Constructor
     /// </summary>
-    public StringMap()
+    public MapString()
     {
       // nothing to do here
     }
@@ -52,11 +52,9 @@ namespace FMLib
     /// <summary>
     /// Adds value to map
     /// </summary>
-    /// <param name="name"></param>
-    /// <param name="value"></param>
     public void Add(string name, T value)
     {
-      if (string.IsNullOrWhiteSpace(name)) { return; }
+      if (name.IsNullOrWhiteSpace()) { return; }
       if (value == null) { return; }
       m_map.Add((name, value));
     }
@@ -64,30 +62,50 @@ namespace FMLib
     /// <summary>
     /// Removes value from map
     /// </summary>
-    /// <param name="name"></param>
     public void Remove(string name, StringComparison comparison = StringComparison.OrdinalIgnoreCase)
     {
-      if (string.IsNullOrWhiteSpace(name)) { return; }
-      int index = m_map.FindIndex(x => x.Name.Equals(name, comparison));
+      if (name.IsNullOrWhiteSpace()) { return; }
+      int index = m_map.FindIndex(x => x.Name.EQUAL(name, comparison));
       if (index != -1) { m_map.RemoveAt(index); }
     }
 
     /// <summary>
     /// Gets value from map
     /// </summary>
-    /// <param name="name"></param>
-    /// <param name="value"></param>
-    /// <returns></returns>
     public bool GetValue(string name, out T value, StringComparison comparison = StringComparison.OrdinalIgnoreCase)
     {
       value = null;
-      if (string.IsNullOrWhiteSpace(name)) { return false; }
+      if (name.IsNullOrWhiteSpace()) { return false; }
       int index = m_map.FindIndex(x => x.Name.Equals(name, comparison));
       if (index == -1) { return false; }
       value = m_map[index].Value;
       return true;
     }
 
+    /// <summary>
+    /// Returns collection of values
+    /// </summary>
+    public IEnumerable<T> Values => new List<T>(m_map.Select(x => x.Value));
+
+    /// <summary>
+    /// Returns collection of values
+    /// </summary>
+    public IEnumerable<string> Keys => new List<string>(m_map.Select(x => x.Name));
+
+    /// <summary>
+    /// Clears data
+    /// </summary>
+    public void Clear() => m_map.Clear();
+
+    /// <summary>
+    /// To string
+    /// </summary>
+    public override string ToString()
+    {
+      return string.Join("\n\t", m_map.Select(x => $"{x.Name}:{x.Value.ToString()}"));
+    }
+
     #endregion
+
   }
 }

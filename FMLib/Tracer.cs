@@ -1,698 +1,450 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace FMLib
+namespace Utils
 {
+
   /// <summary>
-  /// The class to trace and manage tracings
+  /// Level of messages
+  /// </summary>
+  public enum LVL
+  {
+    /// <summary> Most low-level messages. For Ports messages or very often messages. </summary>
+    Trace = 0,
+    /// <summary> Valuable information about actions performed or initialisation of ports and hardwares success </summary>
+    Info = 1,
+    /// <summary> Some expected problems that can be ignored </summary>
+    Warning = 2,
+    /// <summary> Some expected problems that can't be ignored due to incorrect data (port didn't initialise) </summary>
+    Error = 3,
+    /// <summary> Any problems connected with logic or behavior, but not incorrect data </summary>
+    SystemError = 4,
+  }
+
+  /// <summary>
+  /// Tracer class for simulator logging
   /// </summary>
   public class Tracer
   {
-    /// <summary>
-    /// Path to write log files
-    /// </summary>
-    public static volatile string LogPath = "C:\\ProgramData\\Micromine\\PITRAM\\Logs\\Simulator";
+
+    #region Constants
+
+    // Names of constant tracers
+    public const string COMMON = "Common";
+    public const string PARSING = "Parsing";
+    public const string ERROR = "Error";
+    public const string SYSTEM_ERROR = "SystemError";
+
+    // Map of LVL names to display names
+    private static readonly Dictionary<LVL, string> s_lvlNames = new Dictionary<LVL, string> { { LVL.Trace, "TRC" }, { LVL.Info, "INF" }, { LVL.Warning, "WRN" }, { LVL.Error, "ERR" }, { LVL.SystemError, "SER" } };
+
+    // Constants of formats
+    private const string s_dateTimeFormat = s_dateFormat + " " + s_timeFormat;
+    private const string s_dateFormat = "yyyy.MM.dd";
+    private const string s_timeFormat = "HH:mm:ss.fff";
+    private const int PAD = 100;
+    #endregion
+
+    #region Fields
+
+    #region Configuration
 
     /// <summary>
-    /// Callback to obtain header when tracing starts
-    /// Parameter is log name
+    /// Is caller is optimized traced
     /// </summary>
-    public static Func<string, string> FillLogHeader;
+    public static bool IsOptimizedCaller { get; set; } = false;
 
     /// <summary>
-    /// We can stop optimizing logs by setting the flag to true
+    /// Minimum level of tracing messages that can go to files
     /// </summary>
-    public static bool DisallowPlaceholders = false;
-
-    private static readonly string s_FileDateMask = "yyyy-MM-dd-";
-    private static readonly string s_FileDeleteMask = "????-??-??-";
-    private static readonly string s_DateFormat = "dd.MM.yyyy HH:mm:ss.fff";
-    private static readonly string s_ThreadSlotName = "MMTracer";
-    private static readonly Dictionary<string, Tracer> s_ExistingLoggers = new Dictionary<string, Tracer>();
-    private static readonly string[] s_TracingTypeStrings = { "INF", "WRN", "ERR" };
+    public static LVL TraceLevel { get; set; } = LVL.Trace;
 
     /// <summary>
-    /// Info tracing type
+    /// Path of log files
     /// </summary>
-    public const int InfoType = 0;
-    /// <summary>
-    /// Warning tracing type
-    /// </summary>
-    public const int WarningType = 1;
-    /// <summary>
-    /// Error tracing type
-    /// </summary>
-    public const int ErrorType = 2;
+    public static string LogPath { get; set; }
+
+    #endregion
+
+    #region Static members
 
     /// <summary>
-    /// Constant to turn stack trace OFF
+    /// Map of existing tracers
     /// </summary>
-    public const int StackTraceOff = 100;
+    private static readonly Dictionary<string, Tracer> s_tracers = new Dictionary<string, Tracer>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Enables or disables all the tracing
+    /// Time of app start
     /// </summary>
-    public static volatile bool EnableLogging = true;
+    private static readonly DateTimeOffset s_appStart = Process.GetCurrentProcess().StartTime;
+
+    #endregion
+
+    #region Instance members
 
     /// <summary>
-    /// Enables or disables all the tracing based on day limit size of logs
+    /// Locker for thread-sensitive data
     /// </summary>
-    public static volatile bool EnableLoggingLimitation = false;
+    private readonly object m_lock = new object();
 
     /// <summary>
-    /// Gets or Sets tread relative behavior
-    /// Which allows to search thread Tracer and use it instead of called one.
+    /// Map of optimized callers
     /// </summary>
-    public bool ThreadRelatedTracing { get; set; } = false;
+    private readonly Dictionary<int, int> m_callerOptimized = new Dictionary<int, int>();
 
     /// <summary>
-    /// Sets starting level to add stack trace information
+    /// Data pending to be written
     /// </summary>
-    public int TraceStackLevel { get; set; }
+    private readonly Circular<string> m_pendingData = new Circular<string>(100);
 
     /// <summary>
-    /// Add types of classes to exclude them from stack trace string
+    /// Tag of current tracer
     /// </summary>
-    public HashSet<Type> TracingTypesToIgnore { get; }
+    private readonly string m_tracerTag;
 
     /// <summary>
-    /// Constructs a tracer object
+    /// Name of log file of that tracer
     /// </summary>
-    /// <param name="logFileName">Main Part of creating log files name</param>
-    /// <param name="threadRelated"></param>
-    /// <param name="traceStackLevel"></param>
-    public static Tracer Create(string logFileName = "common", bool threadRelated = true, int traceStackLevel = ErrorType)
+    private string m_logFileName;
+
+    /// <summary>
+    /// Value to understand if needs to switch to new file
+    /// </summary>
+    private int m_logDay;
+
+    /// <summary>
+    /// Was header written
+    /// </summary>
+    private Flag m_isHeaderWritten;
+
+    #endregion
+
+    #endregion
+
+    #region Static
+
+    /// <summary>
+    /// Gets tracer with passed name
+    /// </summary>
+    public static Tracer Get(string name = COMMON)
     {
-      logFileName = RemoveInvalidFilenameChars(logFileName);
-      string name = logFileName.ToLower();
-      lock (s_ExistingLoggers)
-      {
-        if (!s_ExistingLoggers.TryGetValue(name, out var tracer))
-        {
-          tracer = new Tracer(logFileName)
-          {
-            ThreadRelatedTracing = threadRelated,
-            TraceStackLevel = traceStackLevel,
-          };
-          s_ExistingLoggers[name] = tracer;
-        }
-
-        return tracer;
-      }
+      name = name.IsNullOrWhiteSpace() ? COMMON : name;
+      name = name.RemoveInvalidFilenameChars();
+      return GetTracer(name);
     }
 
     /// <summary>
-    /// Removes invalid chars from filename
+    /// Writes message to <see cref="ERROR"/> <see cref="Tracer"/> log
     /// </summary>
-    /// <param name="logFileName"></param>
-    /// <returns></returns>
-    private static string RemoveInvalidFilenameChars(string target)
+    public static void _Error(string message, [CallerFilePath] string file = null, [CallerMemberName] string method = null, [CallerLineNumber] int line = 0)
     {
-      StringBuilder result = new StringBuilder(target);
-      char[] invalidChars = Path.GetInvalidFileNameChars();
-      foreach(var e in invalidChars) { result.Replace(e, '$'); }
-      return result.ToString();
+      DateTimeOffset logTime = DateTimeOffset.Now;
+      Caller caller = new Caller(file, method, line);
+      Get(ERROR).Log(message, logTime, caller, LVL.Error);
     }
+
+    /// <summary>
+    /// Writes message to <see cref="ERROR"/> <see cref="Tracer"/> log
+    /// </summary>
+    public static void _SystemError(string message, [CallerFilePath] string file = null, [CallerMemberName] string method = null, [CallerLineNumber] int line = 0)
+    {
+      DateTimeOffset logTime = DateTimeOffset.Now;
+      Caller caller = new Caller(file, method, line);
+      Get(SYSTEM_ERROR).Log(message, logTime, caller, LVL.SystemError);
+    }
+
+    #endregion
+
+    #region Constructors and Destructors
 
     /// <summary>
     /// Constructor
     /// </summary>
-    /// <param name="logFileName"></param>
-    private Tracer(string logFileName)
+    private Tracer(string name)
     {
-      m_logFileName = logFileName;
-      TracingTypesToIgnore = new HashSet<Type> { typeof(Tracer) };
+      m_tracerTag = name;
+    }
+
+    #endregion
+
+    #region Public methods
+
+    /// <summary>
+    /// Writes message to log with Trace level
+    /// </summary>
+    public void Trace(string message, [CallerFilePath] string file = null, [CallerMemberName] string method = null, [CallerLineNumber] int line = 0)
+    {
+      DateTimeOffset logTime = DateTimeOffset.Now;
+      Caller caller = new Caller(file, method, line);
+      Log(message, logTime, caller, LVL.Trace);
+    }
+    /// <summary>
+    /// Writes message to log with Information level
+    /// </summary>
+    public void Info(string message, [CallerFilePath] string file = null, [CallerMemberName] string method = null, [CallerLineNumber] int line = 0)
+    {
+      DateTimeOffset logTime = DateTimeOffset.Now;
+      Caller caller = new Caller(file, method, line);
+      Log(message, logTime, caller, LVL.Info);
     }
 
     /// <summary>
-    /// Delete old files
+    /// Writes message to log with Warning level
     /// </summary>
-    /// <param name="logStoringPeriod"></param>
-    /// <param name="tracer"></param>
-    /// <param name="cleanAllFiles"></param>
-    public static void Clean(TimeSpan logStoringPeriod, Tracer tracer, bool cleanAllFiles = false)
+    public void Warn(string message, [CallerFilePath] string file = null, [CallerMemberName] string method = null, [CallerLineNumber] int line = 0)
+    {
+      DateTimeOffset logTime = DateTimeOffset.Now;
+      Caller caller = new Caller(file, method, line);
+      Log(message, logTime, caller, LVL.Warning);
+    }
+
+    /// <summary>
+    /// Writes message to log with Error level. Also copies message to separate log with errors
+    /// </summary>
+    public void Error(string message, [CallerFilePath] string file = null, [CallerMemberName] string method = null, [CallerLineNumber] int line = 0)
+    {
+      DateTimeOffset logTime = DateTimeOffset.Now;
+      Caller caller = new Caller(file, method, line);
+      Log(message, logTime, caller, LVL.Error);
+    }
+
+    /// <summary>
+    /// Start copying all messages from other tracers from current thread
+    /// </summary>
+    public void StartTreadTracing()
+    {
+      throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Stop copying all messages from other tracers from current thread
+    /// </summary>
+    public void StopThreadTracing()
+    {
+      throw new NotImplementedException();
+    }
+
+    #endregion
+
+    #region Private static
+
+    /// <summary>
+    /// Gets tracer by name
+    /// </summary>
+    private static Tracer GetTracer(string name)
+    {
+      lock (s_tracers)
+      {
+        if (!s_tracers.TryGetValue(name, out var tracer))
+        {
+          tracer = new Tracer(name);
+          s_tracers[name] = tracer;
+        }
+        return tracer;
+      }
+    }
+
+    #endregion
+
+    #region Private methods
+
+    /// <summary>
+    /// Applies logic of logging: filters, addition tracing functions, limitations
+    /// </summary>
+    private void Log(string message, DateTimeOffset logTime, Caller caller, LVL lvl)
+    {
+      if (TraceLevel > lvl) { return; }
+      // TODO: what if tracing is disabled
+      // TODO: what if logs are oversizes
+
+      List<Tracer> tracers = new List<Tracer> { this };
+      if (lvl >= LVL.Error) { tracers.Add(GetTracer(ERROR)); }
+      // TODO: add thread tracers
+
+      tracers.ForEachA(x => x.FormMessage(message, logTime, caller, lvl));
+    }
+
+    /// <summary>
+    /// Forms message to log and writes it
+    /// </summary>
+    private void FormMessage(string message, DateTimeOffset logTime, Caller caller, LVL lvl)
+    {
+      lock (m_lock)
+      {
+        // TODO: if trace optimized
+        // TODO: if Append
+
+        string result;
+        result = string.Format(Formatting_LVL(lvl), Environment.NewLine);
+        result = string.Format(Formatting_DateTime(logTime), result);
+        result = string.Format(Formatting_Caller(caller), result);
+        result = string.Format(Formatting_Stack(), result);
+        result = string.Format(Formatting_Indent(result), result);
+        Formatting_Message(ref message);
+        result += $"{caller.Method}: {message}";
+
+        Write(result);
+      }
+    }
+
+    /// <summary>
+    /// Writes data to destination
+    /// </summary>
+    private void Write(string data)
     {
       try
       {
-        if (logStoringPeriod < TimeSpan.FromDays(1))
+        // Check if LogPath is set.
+        if (LogPath.IsNullOrEmpty())
         {
-          tracer?.Info("Cleaning of old log files is switched off due to zero log storing period.");
+          m_pendingData.Push(data);
           return;
         }
 
-        int deleted = 0;
-        DateTime cutoffTime = DateTime.Now - logStoringPeriod;
-        string[] files = cleanAllFiles
-          ? Directory.GetFiles(Tracer.LogPath, "*", SearchOption.AllDirectories)
-          : Directory.GetFiles(Tracer.LogPath, $"{s_FileDeleteMask}SIM_*.log", SearchOption.TopDirectoryOnly);
-        foreach (string fn in files)
+        // Check if we switched to next day
+        DateTimeOffset now = DateTimeOffset.Now;
+        if (m_logDay != now.Day)
         {
-          if ((new FileInfo(fn)).LastWriteTime < cutoffTime)
-          {
-            try
-            {
-              File.Delete(fn);
-              deleted++;
-              tracer?.Info($"file '{fn}' is deleted.");
-            }
-            catch (Exception ex)
-            {
-              tracer?.Error($"Error deleting the old log file: {fn}", ex.Message);
-            }
-          }
+          m_logDay = now.Day;
+          m_logFileName = Formatting_LogFileName(now);
         }
-        if (deleted > 0)
+
+        // Check if new file or directory needs to be created
+        bool isNewFile = false;
+        Error error = new Error();
+        if (!FileOperations.Exists(m_logFileName, error))
         {
-          tracer?.Info($"{deleted} old log files was deleted.");
+          if (!FileOperations.CreateDirectory(LogPath, error)) { return; }
+          isNewFile = true;
+          m_isHeaderWritten.Reset();
         }
+
+        // Check if data is pending
+        if (m_pendingData.Count > 0)
+        {
+          data = m_pendingData.StrJoin("") + data;
+          m_pendingData.Clear();
+        }
+
+        // Check if need to write header
+        if (!m_isHeaderWritten.CheckThenSet())
+        {
+          data = string.Format(isNewFile ? Formatting_NewFileStart() : Formatting_LogHeader(), data);
+        }
+
+        File.AppendAllText(m_logFileName, data);
       }
-      catch (Exception ex)
-      {
-        tracer?.Error($"Error deleting old log files. {ex}");
-      }
+      catch (Exception ex) { var t = ex.Message; }
+    }
+
+    #endregion
+
+    #region Formatting
+
+    /// <summary>
+    /// Format message
+    /// </summary>
+    private void Formatting_Message(ref string message)
+    {
+      message = message.Replace("\n", "\n".PadRight(PAD));
     }
 
     /// <summary>
-    /// Add default log handler to log Unhandled Exceptions
+    /// Returns formated DateTime info based on configuration
     /// </summary>
-    public static void HookUnhandledException()
+    private string Formatting_DateTime(DateTimeOffset time)
     {
-      AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-    }
-    static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
-    {
-      Tracer tracer = Tracer.Create("unhandled");
-      tracer.Error("Unhandled exception occurred!", e.ExceptionObject?.ToString());
+      return "{0} " + time.ToString(s_dateTimeFormat);
     }
 
     /// <summary>
-    /// Get existing file pathnames for a date
+    /// Return formated Caller info based on configuration
     /// </summary>
-    /// <param name="date"></param>
-    /// <returns></returns>
-    public static string[] GetLogFiles(DateTime date)
+    private string Formatting_Caller(Caller caller)
     {
-      if (!Directory.Exists(Tracer.LogPath))
+      if (IsOptimizedCaller)
       {
-        // GetFiles on a path that does not exist throws an exception, interrupting startup procedure.
-        return new string[0];
+        string shortcut = "";
+        var hash = $"{caller.File}{caller.Line}".GetHashCode();
+        if (!m_callerOptimized.TryGetValue(hash, out var value))
+        {
+          value = m_callerOptimized.Count;
+          m_callerOptimized[hash] = value;
+          shortcut = $"{Environment.NewLine}SHORTCUT: [C:{string.Format("{0:0000}", value)}] {caller.ToString("F", "M", "L")}";
+        }
+        return shortcut + "{0} " + $"[TRD={caller.Thread}, C:{string.Format("{0:0000}", value)}]";
       }
-      return Directory.GetFiles(Tracer.LogPath, $"{date.ToString(s_FileDateMask)}*.log", SearchOption.AllDirectories);
+      return "{0} " + caller.ToString();
     }
 
     /// <summary>
-    /// Gets or Sets the default logger for current thread
+    /// Return formated LVL based on configuration
     /// </summary>
-    public static Tracer CurrentThreadTracer
+    private string Formatting_LVL(LVL lvl)
     {
-      get
-      {
-        try { return Thread.GetData(Thread.GetNamedDataSlot(s_ThreadSlotName)) as Tracer; }
-        catch { return null; }
-      }
-      set
-      {
-        try
-        {
-          Thread.SetData(Thread.GetNamedDataSlot(s_ThreadSlotName), value);
-        }
-        catch (Exception ex)
-        {
-          value?.Error($"Can't set log file for this thread. {ex}");
-        }
-      }
+      return "{0} " + s_lvlNames[lvl];
     }
 
     /// <summary>
-    /// Info tracing
+    /// Returns formated stack info based on configuration
     /// </summary>
-    /// <param name="message">Message to be logged</param>
-    /// <param name="exceptionMessage">Exception message to log separately</param>
-    public void Info(string message, [CallerMemberName] string method = null, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
+    private string Formatting_Stack()
     {
-      DateTime now = DateTime.Now;
-      message = $"{method}: {message}\t[file:{Path.GetFileName(file)}, line:{line}]";
-      //Task.Factory.StartNew(() => trace(InfoType, null, message, null, null, false, now));
-      trace(InfoType, null, message, null, null, false, now);
+      // TODO: real StackTrace
+      return "{0}";
     }
 
     /// <summary>
-    /// Info tracing
+    /// Makes message body start at least on specified index place
     /// </summary>
-    /// <param name="startTime">Start Time which is used to calculate duration when logging</param>
-    /// <param name="message">Message to be logged</param>
-    /// <param name="exceptionMessage">Exception message to log separately</param>
-    public void Info(DateTime startTime, string message, [CallerMemberName] string method = null, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
+    private string Formatting_Indent(string data)
     {
-      DateTime now = DateTime.Now;
-      message = $"{message}\t[file:{Path.GetFileName(file)}, line:{line}, method:{method}]";
-      //Task.Factory.StartNew(() => trace(InfoType, startTime, message, null, null, false, now));
-      trace(InfoType, startTime, message, null, null, false, now);
+      int index = data.LastIndexOf(Environment.NewLine);
+      if (index == -1) { index = 0; }
+      int spacesCount = data.Length - index;
+      if (spacesCount > PAD) { return "{0}"; }
+      else { return "{0}" + " ".PadLeft(PAD - spacesCount + 1); }
     }
 
     /// <summary>
-    /// Warning tracing
+    /// Returns file name formatted
     /// </summary>
-    /// <param name="message">Message to be logged</param>
-    /// <param name="exceptionMessage">Exception message to log separately</param>
-    public void Warning(string message, [CallerMemberName] string method = null, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
+    private string Formatting_LogFileName(DateTimeOffset dateTime)
     {
-      DateTime now = DateTime.Now;
-      message = $"{message}\t[file:{Path.GetFileName(file)}, line:{line}, method:{method}]";
-      //Task.Factory.StartNew(() => trace(WarningType, null, message, null, null, false, now));
-      trace(WarningType, null, message, null, null, false, now);
+      return Path.Combine(LogPath, $"{dateTime.ToString(s_dateFormat)}_SIM_{m_tracerTag}.log");
     }
 
     /// <summary>
-    /// Warning tracing
+    /// Returns log start header
     /// </summary>
-    /// <param name="startTime">Start Time which is used to calculate duration when logging</param>
-    /// <param name="message">Message to be logged</param>
-    /// <param name="exceptionMessage">Exception message to log separately</param>
-    public void Warning(DateTime startTime, string message, [CallerMemberName] string method = null, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
+    private string Formatting_LogHeader()
     {
-      DateTime now = DateTime.Now;
-      message = $"{message}\t[file:{Path.GetFileName(file)}, line:{line}, method:{method}]";
-      //Task.Factory.StartNew(() => trace(WarningType, startTime, message, null, null, false, now));
-      trace(WarningType, startTime, message, null, null, false, now);
+      return Environment.NewLine + Environment.NewLine + Environment.NewLine + Environment.NewLine +
+      $"\r\n\r\n\r\n\r\n!!!!!!!!!!!!!! -----------= [LOG STARTS: {s_appStart.ToString(s_dateTimeFormat)}] =----------- !!!!!!!!!!!!!!" + Environment.NewLine +
+      "LOG_NAME=" + m_tracerTag + Environment.NewLine +
+      "PATH_NAME=" + m_logFileName + Environment.NewLine +
+      "DIR_NAME=" + AppDomain.CurrentDomain?.BaseDirectory + Environment.NewLine +
+      "APP_NAME=" + AppDomain.CurrentDomain?.FriendlyName + Environment.NewLine +
+      "APP_VERSION=" + Assembly.GetEntryAssembly()?.GetName()?.Version + Environment.NewLine +
+       Environment.NewLine + Environment.NewLine + "{0}";
     }
 
     /// <summary>
-    /// Error tracing
+    /// Returns all saved optimized data
     /// </summary>
-    /// <param name="message">Message to be logged</param>
-    /// <param name="exceptionMessage">Exception message to log separately</param>
-    public void Error(string message, [CallerMemberName] string method = null, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
+    private string Formatting_NewFileStart()
     {
-      DateTime now = DateTime.Now;
-      message = $"{message}\t[file:{Path.GetFileName(file)}, line:{line}, method:{method}]";
-      //Task.Factory.StartNew(() => trace(ErrorType, null, message, null, null, false, now));
-      trace(ErrorType, null, message, null, null, false, now);
+      // TODO: add caller informations
+      m_callerOptimized.Clear();
+      // TODO: add StackTrace informations
+      return Formatting_LogHeader();
     }
 
-    /// <summary>
-    /// Error tracing
-    /// </summary>
-    /// <param name="startTime">Start Time which is used to calculate duration when logging</param>
-    /// <param name="message">Message to be logged</param>
-    /// <param name="exceptionMessage">Exception message to log separately</param>
-    public void Error(DateTime startTime, string message, [CallerMemberName] string method = null, [CallerFilePath] string file = null, [CallerLineNumber] int line = 0)
-    {
-      DateTime now = DateTime.Now;
-      message = $"{message}\t[file:{Path.GetFileName(file)}, line:{line}, method:{method}]";
-      //Task.Factory.StartNew(() => trace(ErrorType, startTime, message, null, null, false, now));
-      trace(ErrorType, startTime, message, null, null, false, now);
-    }
+    #endregion
 
-    /// <summary>
-    /// Append text to existing log without caret returning and additional formatting
-    /// </summary>
-    /// <param name="message">message</param>
-    /// <param name="prefix">new line prefix</param>
-    /// <param name="maxLineLength">line length</param>
-    public void Append(string message, string prefix = null, int maxLineLength = 100)
-    {
-      DateTime now = DateTime.Now;
-      //Task.Factory.StartNew(() =>
-      //{
-      { // try to trace with thread tracer
-        Tracer tracer = ThreadRelatedTracing ? CurrentThreadTracer : null;
-        if (tracer != this)
-        {
-          tracer?.Append(message, prefix, maxLineLength);
-        }
-      }
-
-      lock (m_locker)
-      {
-        bool newLine = (m_pureCounter == 0);
-        m_pureCounter += message?.Length ?? 0;
-        if (m_pureCounter >= maxLineLength) // new string after 80 characters
-        {
-          m_pureCounter = 0;
-        }
-        if (newLine)
-        {
-          if (m_lineWasAppended)
-          {
-            trace("\r\n", now, true);
-          }
-          trace(InfoType, null, prefix + message, null, null, true, now);
-        }
-        else
-        {
-          trace(message, now, true);
-        }
-      }
-      // });
-    }
-
-    /// <summary>
-    /// trace with replacing common messages by placeholders
-    /// </summary>
-    /// <param name="tracingType">Tracing Level Type</param>
-    /// <param name="message">Message to be logged</param>
-    public void TraceOptimized(int tracingType, string message)
-    {
-      DateTime now = DateTime.Now;
-      Task.Factory.StartNew(() => optimizedTrace(tracingType, null, message, message, null, null, false, now));
-    }
-    /// <summary>
-    /// trace with replacing common messages by placeholders, using hash as placeholder key
-    /// </summary>
-    /// <param name="tracingType">Tracing Level Type</param>
-    /// <param name="hash"></param>
-    /// <param name="message">Message to be logged</param>
-    public void TraceOptimized(int tracingType, string hash, string message)
-    {
-      DateTime now = DateTime.Now;
-      Task.Factory.StartNew(() => optimizedTrace(tracingType, null, hash, message, null, null, false, now));
-    }
-
-    #region formatters
-
-    /// <summary>
-    /// format dataRow to log string
-    /// </summary>
-    /// <param name="dataRow"></param>
-    public static string Format(DataRow dataRow)
-    {
-      try
-      {
-        return dataRow == null ? "NULL" :
-          string.Join(",", dataRow.Table.Columns.Cast<DataColumn>().Select(c => $"{c.ColumnName ?? c.Ordinal.ToString()}='{dataRow[c]}'"));
-      }
-      catch (Exception ex) { return "EX:" + ex.Message; }
-    }
-
-    /// <summary>
-    /// Returns short stack trace string
-    /// </summary>
-    /// <returns></returns>
-    public string StackTrace()
-    {
-      string stackIndent = "";
-      try
-      {
-        string lastFileName = "";
-        StackTrace st = new StackTrace(true);
-        for (int i = 3; i < st.FrameCount; i++)
-        {
-          // Note that at this level, there are four
-          // stack frames, one for each method invocation.
-          StackFrame sf = st.GetFrame(i);
-
-          var method = sf.GetMethod();
-          bool ignore = false;
-          foreach (var typeToIgnore in TracingTypesToIgnore)
-          {
-            if (typeToIgnore == method.DeclaringType)
-            {
-              ignore = true;
-              break;
-            }
-          }
-
-          if (!ignore)
-          {
-            string fileName = sf.GetFileName();
-            if (string.IsNullOrEmpty(fileName)) // release without .pdb debug info
-            {
-              stackIndent = $"/{method.DeclaringType}:{method}" + stackIndent;
-            }
-            else
-            {
-              fileName = Path.GetFileName(fileName);
-              string info = $"{method?.Name}:{sf.GetFileLineNumber()}";
-              if (lastFileName == fileName)
-              {
-                stackIndent = stackIndent.Substring(0, fileName.Length + 2) + info + "," + stackIndent.Substring(fileName.Length + 2);
-              }
-              else
-              {
-                stackIndent = $"/{fileName}:" + info + stackIndent;
-              }
-              lastFileName = fileName;
-            }
-          }
-        }
-      }
-      catch
-      {
-        stackIndent = "/EXCEPTION" + stackIndent;
-      }
-
-      return stackIndent;
-    }
-
-    #endregion formatters
-
-    #region implementation
-
-    private readonly object m_locker = new object();
-    private readonly Encoding m_logEncoding = Encoding.UTF8;
-    private readonly string m_logFileName;
-    private readonly Dictionary<string, uint> m_stackInfo = new Dictionary<string, uint>();
-
-    private DateTime m_logDate = DateTime.MinValue;
-    private bool m_started = false;
-    private bool m_lineWasAppended = false;
-    private volatile int m_pureCounter = 0;
-    private string m_logPathName = "";
-    private int m_errorAttempts = 0;
-    private string m_lastLogWriteFailMessage = "";
-
-    private string optimizedStackTrace(out string stackTraceDefinition)
-    {
-      string stackTrace = StackTrace();
-
-      lock (m_stackInfo)
-      {
-        if (!m_stackInfo.TryGetValue(stackTrace, out uint number))
-        {
-          m_stackInfo[stackTrace] = number = (uint)m_stackInfo.Count;
-          stackTraceDefinition = stackTrace;
-        }
-        else
-        {
-          stackTraceDefinition = null;
-        }
-        return number.ToString("X4");
-      }
-    }
-
-    private void trace(int tracingType, DateTime? startTime, string message, string exceptionMessage, Exception exception, bool appendLine, DateTime now)
-    {
-      { // try to trace with thread tracer
-        Tracer tracer = ThreadRelatedTracing ? CurrentThreadTracer : null;
-        if (tracer != this)
-        {
-          tracer?.trace(tracingType, startTime, message, exceptionMessage, exception, appendLine, now);
-        }
-      }
-
-      string stackTrace = "";
-      if (!appendLine && (TraceStackLevel <= tracingType))
-      {
-        stackTrace = "[" + optimizedStackTrace(out string stackTraceDefinition) + "]";
-        if (!string.IsNullOrEmpty(stackTraceDefinition))
-        {
-          trace($"STACK: {stackTrace}={stackTraceDefinition}", now, false);
-        }
-        stackTrace += "  ";
-      }
-
-      trace((((tracingType >= 0) && (tracingType < s_TracingTypeStrings.Length)) ? s_TracingTypeStrings[tracingType] : "UNK") + " "
-                                         + now.ToString(s_DateFormat)
-                                         + (" (THRD=" + Thread.CurrentThread.ManagedThreadId + ")" + (startTime == null ? ":" : ",")).PadRight(14)
-                                         + (startTime == null ? "" : ("(" + (int)(now - startTime.Value).TotalMilliseconds + "ms):")).PadRight(10)
-                                         + stackTrace
-                                         + message
-                                         + (exceptionMessage == null ? "" : (" EX: " + exceptionMessage))
-                                         + (exception == null ? "" : (" EX: \r\n" + exception))
-        , now, appendLine);
-    }
-
-
-    private void trace(string message, DateTime now, bool appendLine)
-    {
-      if (!EnableLogging)
-      {
-        return;
-      }
-
-      lock (m_locker)
-      {
-        try
-        {
-          if (m_logDate != now.Date)
-          {
-            m_logDate = now.Date;
-            m_logPathName = Path.Combine(LogPath, $"{m_logDate.ToString(s_FileDateMask)}SIM_{m_logFileName}.log");
-          }
-
-          if (!File.Exists(m_logPathName))
-          {
-            try { Directory.CreateDirectory(LogPath); }
-            catch { }
-            File.AppendAllText(m_logPathName, "", m_logEncoding); // creating new file, to avoid of stack overflow
-            m_started = false;
-          }
-
-          if (!m_started)
-          {
-            m_started = true;
-
-            trace("\r\n\r\n\r\n\r\n!!!!!!!!!!!!!! -----------= LOG STARTS AT: " + now + " =----------- !!!!!!!!!!!!!!", now, false);
-            trace("LOG_NAME=" + m_logFileName, now, false);
-            trace("PATH_NAME=" + m_logPathName, now, false);
-            trace("DIR_NAME=" + AppDomain.CurrentDomain.BaseDirectory, now, false);
-            trace("APP_NAME=" + AppDomain.CurrentDomain.FriendlyName, now, false);
-            try
-            {
-              trace("APP_BUILT=" + new FileInfo(AppDomain.CurrentDomain.BaseDirectory + AppDomain.CurrentDomain.FriendlyName).LastWriteTimeUtc + " UTC", now, false);
-            }
-            catch
-            {
-              trace("APP_BUILT=Could not get build time", now, false);
-            }
-            if (FillLogHeader != null)
-            {
-              try { trace(FillLogHeader(m_logFileName), now, false); }
-              catch (Exception ex) { trace("HEADER EXCEPTION: " + ex.Message, now, false); }
-            }
-
-            trace("", now, false);
-
-            m_stackInfo.Clear();
-          }
-
-          if (!appendLine)
-          {
-            m_pureCounter = 0;
-          }
-
-          File.AppendAllText(m_logPathName, ((m_lineWasAppended && !appendLine) ? "\r\n" : "") + message + (appendLine ? "" : "\r\n"), m_logEncoding);
-          if (m_errorAttempts != 0)
-          {
-            try
-            {
-              File.AppendAllText(m_logPathName,
-                "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" +
-                "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" +
-                $"WRITING LOGS FAILED {m_errorAttempts} TIMES" +
-                $"LAST LOG MESSAGE: {m_lastLogWriteFailMessage}",
-                m_logEncoding);
-              m_errorAttempts = 0;
-            }
-            catch { } // still have a problem
-          }
-        }
-        catch (Exception ex)
-        {
-          try { m_lastLogWriteFailMessage = message + " EX: " + ex; }
-          catch { m_lastLogWriteFailMessage = "UNKNOWN EX: " + ex; }
-          m_errorAttempts++;
-        }
-        m_lineWasAppended = appendLine;
-      }
-    }
-
-    private void optimizedTrace(int tracingType, DateTime? startTime, string hash, string message, string exceptionMessage, Exception exception, bool appendLine, DateTime now)
-    {
-      if (DisallowPlaceholders)
-      {
-        trace(tracingType, startTime, message, exceptionMessage, exception, appendLine, now);
-      }
-      else
-      {
-        string s = getOptimizedLog(hash, message);
-        if (s.Length == 1) // placeholder
-        {
-          Append(s);
-        }
-        else // placeholder definition
-        {
-          trace(tracingType, startTime, s, exceptionMessage, exception, appendLine, now);
-        }
-      }
-    }
-
-    private class LogCacheInfo
-    {
-      public string Descr;
-      public string LogStr;
-      public DateTime Time;
-      public DateTime LogTime;
-      public char Symbol;
-    }
-    private readonly List<LogCacheInfo> m_logCacheList = new List<LogCacheInfo>();
-    private readonly TimeSpan m_repeatSpan = TimeSpan.FromMinutes(10);
-    private readonly TimeSpan m_removeSpan = TimeSpan.FromMinutes(1);
-    private readonly object m_optimizedLock = new object();
-
-    private string getOptimizedLog(string hash, string log_str)
-    {
-      lock (m_optimizedLock)
-      {
-        DateTime now = DateTime.Now;
-        List<LogCacheInfo> list2remove = new List<LogCacheInfo>();
-        LogCacheInfo lci = null;
-        LogCacheInfo lci_oldest = null;
-        string symbols = "QWERTYUIOPASDFGHJKLZXCVBNM";
-        foreach (LogCacheInfo item in m_logCacheList)
-        {
-          if (now - item.Time > m_removeSpan)
-            list2remove.Add(item);
-          else
-          {
-            symbols = symbols.Replace(item.Symbol, ' ');
-            if (item.Descr == hash)
-            {
-              lci = item;
-              break;
-            }
-            if ((lci_oldest == null) || (item.Time < lci_oldest.Time))
-              lci_oldest = item;
-          }
-        }
-        foreach (LogCacheInfo item in list2remove)
-          m_logCacheList.Remove(item);
-
-        if (lci == null)
-        {
-          symbols = symbols.Replace(" ", "").Trim();
-          if (symbols.Length == 0)
-            lci = lci_oldest;
-          else
-          {
-            lci = new LogCacheInfo();
-            lci.Symbol = symbols[0];
-            m_logCacheList.Add(lci);
-          }
-          lci.Descr = hash;
-          lci.LogStr = "";
-          lci.LogTime = DateTime.MinValue;
-        }
-
-        lci.Time = now;
-        if (now - lci.LogTime > m_repeatSpan) //  || (lci.LogStr != log_str) - commented condition deduces readability, what is why it is commented :)
-        {
-          lci.LogStr = log_str;
-          lci.LogTime = now;
-          return "[" + lci.Symbol + "] " + log_str + "\r\n";
-        }
-        return "" + lci.Symbol;
-      }
-    }
-    #endregion implementation
   }
 }
