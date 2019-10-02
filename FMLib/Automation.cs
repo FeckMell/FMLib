@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Newtonsoft.Json;
+using System.Threading;
+using FMLib.ExtensionMethods;
 
 namespace Utils
 {
@@ -10,101 +9,90 @@ namespace Utils
   /// </summary>
   public static class Automation
   {
-
-    #region Fields
-
-    private static readonly JsonSerializerSettings WithoutTypeSettings = new JsonSerializerSettings
-    {
-      NullValueHandling = NullValueHandling.Ignore,
-      DateFormatHandling = DateFormatHandling.IsoDateFormat,
-      DateFormatString = Constants.DATE_TIME_FORMAT,
-      DateParseHandling = DateParseHandling.DateTimeOffset,
-      FloatFormatHandling = FloatFormatHandling.String,
-      FloatParseHandling = FloatParseHandling.Double,
-      Formatting = Formatting.None,
-      MissingMemberHandling = MissingMemberHandling.Ignore,
-      ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-      TypeNameAssemblyFormatHandling = TypeNameAssemblyFormatHandling.Simple,
-    };
-
-    private static readonly JsonSerializerSettings WithTypeSettings = new JsonSerializerSettings
-    {
-      Formatting = Formatting.None,
-      TypeNameHandling = TypeNameHandling.Objects,
-      NullValueHandling = NullValueHandling.Ignore,
-      TypeNameAssemblyFormatHandling = TypeNameAssemblyFormatHandling.Full,
-    };
-
-    #endregion
-
-    #region Public methods
-
     /// <summary>
-    /// Constructs string representation of object
+    /// Wraps provided actions to try-catch.
     /// </summary>
-    public static string ToString(object target)
+    /// <param name="action">action in try section</param>
+    /// <param name="failAction">action in catch section</param>
+    /// <returns>True - if didn't throw. False otherwise</returns>
+    public static bool TryCatch(this Action action, Action<Exception> failAction = null)
     {
-      if (target == null) { return "{NULL}"; }
-
-      try { return JsonConvert.SerializeObject(target, WithoutTypeSettings); }
-      catch (Exception ex) { Tracer._SystemError(ex.ToString()); return ""; }
-    }
-
-    /// <summary>
-    /// Checks that two objects are equal by checking their properties on default equality
-    /// </summary>
-    public static bool AreEqual(object one, object two)
-    {
-      if (one == null && two == null) { return true; }
-      if (one == null) { return false; }
-      if (two == null) { return false; }
-      if (one.GetType() != two.GetType()) { return false; }
-
       try
       {
-        string oneStr = JsonConvert.SerializeObject(one, WithTypeSettings);
-        string twoStr = JsonConvert.SerializeObject(two, WithTypeSettings);
-        return string.Equals(oneStr, twoStr, StringComparison.OrdinalIgnoreCase);
+        action?.Invoke();
+        return true;
       }
-      catch (Exception ex) { Tracer._SystemError(ex.ToString()); return false; }
+      catch (Exception ex)
+      {
+        failAction?.Invoke(ex);
+        return false;
+      }
     }
 
     /// <summary>
-    /// Clones object. No guarantee that it will be OK.
+    /// Wraps provided actions to try-catch.
     /// </summary>
-    public static T Clone<T>(T target)
+    /// <param name="action">action in try section</param>
+    /// <param name="failAction">action in catch section</param>
+    /// <param name="exception"> out exception </param>
+    /// <returns>True - if didn't throw. False otherwise</returns>
+    public static bool TryCatch(this Action action, out Exception exception, Action<Exception> failAction = null)
     {
-      if (EqualityComparer<T>.Default.Equals(target, default(T))) { return default(T); }
-
       try
       {
-        string temp = JsonConvert.SerializeObject(target, WithTypeSettings);
-        return (T)JsonConvert.DeserializeObject(temp, WithTypeSettings);
+        action?.Invoke();
+        exception = null;
+        return true;
       }
-      catch (Exception ex) { Tracer._SystemError(ex.ToString()); return default(T); }
+      catch (Exception ex)
+      {
+        exception = ex;
+        failAction?.Invoke(exception);
+        return false;
+      }
     }
 
     /// <summary>
-    /// Fills properties of target from dictionary of property names and values
+    /// <para/>Executes provided action with retries in same thread.
+    /// <para/>Throws last exception if exceeded <paramref name="maxAttempts"/>. Also see parameters description.
     /// </summary>
-    public static void DictToProps(object target, Dictionary<string, object> dict)
+    /// <param name="action">Action to repeat. Throws if null</param>
+    /// <param name="maxAttempts">Amount of attempts to repeat. Throws if less than 1</param>
+    /// <param name="retryDelay">Amount of milliseconds to wait between retries</param>
+    public static void ExecuteWithRetry(Action action, int maxAttempts = 3, int retryDelay = 0)
     {
-      if (target == null) { return; }
-      if (dict == null) { return; }
-      try
+      action.ThrowIfNull(nameof(action));
+      if (maxAttempts < 1) { throw new ArgumentException(nameof(maxAttempts)); }
+
+      Exception exception = null;
+      for (int i = 0; i < maxAttempts; i++)
       {
-        var classProps = target.GetType().GetProperties();
-        foreach (var e in dict)
-        {
-          var property = classProps.FirstOrDefault(x => x.Name.EQUAL(e.Key));
-          try { property?.SetValue(target, e.Value); }
-          catch (Exception ex) { Tracer._SystemError(ex.ToString()); }
-        }
+        if (Automation.TryCatch(action, out exception)) { return; }
+        Thread.Sleep(retryDelay);
       }
-      catch (Exception ex) { Tracer._SystemError(ex.ToString()); }
+      throw exception;
     }
 
-    #endregion
+    /// <summary>
+    /// <para/>Executes provided function with retries in same thread.
+    /// <para/>Throws last exception if exceeded <paramref name="maxAttempts"/>. Also see parameters description.
+    /// </summary>
+    /// <param name="func">Function to repeat. Throws if null</param>
+    /// <param name="maxAttempts">Amount of attempts to repeat. Throws if less than 1</param>
+    /// <param name="retryDelay">Amount of milliseconds to wait between retries</param>
+    public static T ExecuteWithRetry<T>(Func<T> func, int maxAttempts = 3, int retryDelay = 0)
+    {
+      func.ThrowIfNull(nameof(func));
+      if (maxAttempts < 1) { throw new ArgumentException(nameof(maxAttempts)); }
 
+      Exception exception = null;
+      T result = default(T);
+      for (int i = 0; i < maxAttempts; i++)
+      {
+        if (Automation.TryCatch(() => result = func.Invoke(), out exception)) { return result; }
+        Thread.Sleep(retryDelay);
+      }
+      throw exception;
+    }
   }
 }

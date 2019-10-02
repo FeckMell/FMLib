@@ -1,13 +1,14 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
+using FMLib.ExtensionMethods;
 
-namespace Utils
+namespace Utils.Logging
 {
   /// <summary>
   /// Class representing caller of method
   /// </summary>
-  public class Caller
+  internal class Caller
   {
 
     /// <summary>

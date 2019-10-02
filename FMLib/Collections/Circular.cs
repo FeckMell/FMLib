@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace Utils
+namespace FMLib.Collections
 {
 
   /// <summary>

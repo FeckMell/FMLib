@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using FMLib.ExtensionMethods;
 
 namespace Utils
 {
@@ -87,7 +88,7 @@ namespace Utils
     public void Add(Error error)
     {
       if (error == null) { return; }
-      if (error.Message.IsNullOrWhiteSpace()) { error.SubErrors.ForEachA(x => Add(x)); }
+      if (error.Message.IsNullOrWhiteSpace()) { error.SubErrors.ForEach(x => Add(x)); }
       else { SubErrors.Add(error); }
     }
 
@@ -122,7 +123,7 @@ namespace Utils
     private string ToString(string delimeter, string intend, int depth)
     {
       if (IsEmpty) { return string.Empty; }
-      string levelIntend = Useful.Intend(intend, depth);
+      string levelIntend = intend.Repeat(depth);
       string result = Message;
       foreach (var error in SubErrors)
       {

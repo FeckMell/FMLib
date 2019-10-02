@@ -32,6 +32,6 @@ namespace Utils
     /// <summary>
     /// ToString
     /// </summary>
-    public override string ToString() => Message + (InnerException == null ? "" : $"\tInner exception: {InnerException.Message}");
+    public override string ToString() => this.FullInfo();
   }
 }

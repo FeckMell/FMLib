@@ -4,8 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using FMLib.Collections;
+using FMLib.ExtensionMethods;
 
-namespace Utils
+namespace Utils.Logging
 {
 
   /// <summary>
@@ -265,7 +267,7 @@ namespace Utils
       if (lvl >= LVL.Error) { tracers.Add(GetTracer(ERROR)); }
       // TODO: add thread tracers
 
-      tracers.ForEachA(x => x.FormMessage(message, logTime, caller, lvl));
+      tracers.ForEach(x => x.FormMessage(message, logTime, caller, lvl));
     }
 
     /// <summary>

@@ -1,4 +1,6 @@
-﻿namespace Utils
+﻿using FMLib.ExtensionMethods;
+
+namespace Utils
 {
   /// <summary>
   /// Class representing time range

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using FMLib.ExtensionMethods;
 
 namespace Utils
 {
@@ -66,7 +67,7 @@ namespace Utils
       if (Examples.Count > 1)
       {
         Error example = new Error("Examples:");
-        Examples.ForEachA(x => example.SubErrors.Add(new Error(x)));
+        Examples.ForEach(x => example.SubErrors.Add(new Error(x)));
         result.Add(example);
       }
       if (!Default.IsNullOrWhiteSpace()) { result.Add($"Default: {Default}"); }
