@@ -14,13 +14,8 @@ namespace Utils
     public event PropertyChangedEventHandler PropertyChanged;
 
     /// <summary>
-    /// On changed event for single argument
-    /// </summary>
-    protected void OnChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-
-    /// <summary>
     /// On changed event for auto name fill
     /// </summary>
-    protected void OnChangedAuto([CallerMemberName]string name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    protected void OnChanged([CallerMemberName]string name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
   }
 }

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using FMLib;
 using FMLib.Collections;
 using FMLib.ExtensionMethods;
 
@@ -40,6 +41,7 @@ namespace Utils.Logging
     public const string PARSING = "Parsing";
     public const string ERROR = "Error";
     public const string SYSTEM_ERROR = "SystemError";
+    public const string UI = "UI";
 
     // Map of LVL names to display names
     private static readonly Dictionary<LVL, string> s_lvlNames = new Dictionary<LVL, string> { { LVL.Trace, "TRC" }, { LVL.Info, "INF" }, { LVL.Warning, "WRN" }, { LVL.Error, "ERR" }, { LVL.SystemError, "SER" } };
@@ -317,7 +319,7 @@ namespace Utils.Logging
 
         // Check if new file or directory needs to be created
         bool isNewFile = false;
-        Error error = new Error();
+        DataTree<string> error = new DataTree<string>();
         if (!FileOperations.Exists(m_logFileName, error))
         {
           if (!FileOperations.CreateDirectory(LogPath, error)) { return; }

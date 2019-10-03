@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using FMLib.Collections;
 using FMLib.ExtensionMethods;
+using Utils;
 
-namespace Utils
+namespace FMLib
 {
   /// <summary>
   /// Class contains common file operations for Simulator
@@ -14,7 +16,7 @@ namespace Utils
     /// <summary>
     /// Checks if file exists
     /// </summary>
-    public static bool Exists(string filepath, Error error)
+    public static bool Exists(string filepath, DataTree<string> error)
     {
       try
       {
@@ -33,7 +35,7 @@ namespace Utils
     /// <summary>
     /// Reads all test from file in <see cref="List{T}"/> where T is <see cref="string"/>
     /// </summary>
-    public static bool ReadFileLineArray(string filepath, out List<string> file, Error error)
+    public static bool ReadFileLineArray(string filepath, out List<string> file, DataTree<string> error)
     {
       try
       {
@@ -52,11 +54,11 @@ namespace Utils
     /// <summary>
     /// Reads all text from file
     /// </summary>
-    public static bool ReadAllFile(string filepath, out string result, Error error)
+    public static bool ReadAllFile(string filepath, out string result, DataTree<string> error)
     {
       try
       {
-        Error subError = new Error();
+        DataTree<string> subError = new DataTree<string>();
         if (!Exists(filepath, error)) { result = string.Empty; return false; }
         result = File.ReadAllText(filepath);
         return true;
@@ -72,7 +74,7 @@ namespace Utils
     /// <summary>
     /// Creates directory recursive. Path with filename can be passed if file has extension.
     /// </summary>
-    public static bool CreateDirectory(string path, Error error)
+    public static bool CreateDirectory(string path, DataTree<string> error)
     {
       if (path.IsNullOrWhiteSpace()) { error.Add("Path is empty."); return false; }
       try

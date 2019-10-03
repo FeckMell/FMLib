@@ -33,6 +33,7 @@ namespace FMLib.ExtensionMethods
       TypeNameHandling = TypeNameHandling.Objects,
       NullValueHandling = NullValueHandling.Ignore,
       TypeNameAssemblyFormatHandling = TypeNameAssemblyFormatHandling.Full,
+      ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
     };
 
     #endregion

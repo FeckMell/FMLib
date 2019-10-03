@@ -22,11 +22,6 @@ namespace FMLib.Configuration
     static GlobalInformation()
     {
       PathAppHome = AppDomain.CurrentDomain.BaseDirectory;
-
-      PathConfiguration = Path.Combine(PathAppHome, CONFIGURATION_FOLDER);
-      PathLog = Path.Combine(PathAppHome, LOGS_FOLDER);
-      PathRuntime = Path.Combine(PathAppHome, RUNTIME_FOLDER);
-      PathClientDatabase = Path.Combine(PathAppHome, CLIENT_DATABASE_FOLDER);
       Automation.TryCatch(
         () => AppVersion = System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString(),
         (ex) => AppVersion = "Unknown build version");
@@ -57,8 +52,10 @@ namespace FMLib.Configuration
 
     /// <summary>
     /// Application home folder where all others are situated. Default: exe folder
+    /// <para/> Setting that value will update all paths based on provided value. <see cref="UpdatePaths(string)"/>
     /// </summary>
-    public static string PathAppHome { get; set; } = string.Empty;
+    public static string PathAppHome { get => s_pathAppHome; set => UpdatePaths(value); }
+    private static string s_pathAppHome = string.Empty;
 
     /// <summary>
     /// Path for Configuration files folder
@@ -94,5 +91,23 @@ namespace FMLib.Configuration
     /// Format of Time
     /// </summary>
     public static string TimeFormat { get; set; } = "HH:mm:ss.fff";
+
+    #region Private methods
+
+    /// <summary>
+    /// Updates all paths based on <paramref name="value"/>
+    /// </summary>
+    private static void UpdatePaths(string value)
+    {
+      s_pathAppHome = value;
+
+      PathConfiguration = Path.Combine(value, CONFIGURATION_FOLDER);
+      PathLog = Path.Combine(value, LOGS_FOLDER);
+      PathRuntime = Path.Combine(value, RUNTIME_FOLDER);
+      PathClientDatabase = Path.Combine(value, CLIENT_DATABASE_FOLDER);
+    }
+
+    #endregion
+
   }
 }

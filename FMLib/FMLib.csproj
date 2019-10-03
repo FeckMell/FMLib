@@ -38,6 +38,7 @@
     <Reference Include="PresentationFramework" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Xaml" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -48,7 +49,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Automation.cs" />
+    <Compile Include="Collections\DataTree.cs" />
+    <Compile Include="Collections\Value.cs" />
     <Compile Include="ExtensionMethods\ExtensionsStream.cs" />
+    <Compile Include="FileOperations.cs" />
     <Compile Include="Logging\Caller.cs" />
     <Compile Include="Collections\Circular.cs" />
     <Compile Include="Configuration\GlobalInformation.cs" />
@@ -56,7 +60,6 @@
     <Compile Include="Configuration\MachineInformation.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="Doc.cs" />
-    <Compile Include="Error.cs" />
     <Compile Include="ExpectedException.cs" />
     <Compile Include="ExtensionMethods\ExtensionsException.cs" />
     <Compile Include="ExtensionMethods\ExtensionsIEnumerable.cs" />
@@ -66,11 +69,13 @@
     <Compile Include="ExtensionMethods\ExtensionsString.cs" />
     <Compile Include="ExtensionMethods\ExtensionsTask.cs" />
     <Compile Include="ExtensionMethods\ExtensionsTimeSpan.cs" />
-    <Compile Include="FileOperations.cs" />
     <Compile Include="Flag.cs" />
     <Compile Include="Logging\MMTracer.cs" />
     <Compile Include="Collections\MapString.cs" />
-    <Compile Include="NotifyPropertyChanged.cs" />
+    <Compile Include="WPF\Converters\XAMLVisibilityConverter.cs" />
+    <Compile Include="WPF\Converters\XAMLMultiplyConverter.cs" />
+    <Compile Include="WPF\Converters\XAMLAdditionConverter.cs" />
+    <Compile Include="WPF\NotifyPropertyChanged.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ReferenceData\IGroup.cs" />
     <Compile Include="ReferenceData\IAttribute.cs" />
@@ -80,11 +85,9 @@
     <Compile Include="ThreadFlowControl\ThreadFlowControl.cs" />
     <Compile Include="ThreadFlowControl\ThreadFlowControlToken.cs" />
     <Compile Include="ThreadFlowControl\ThreadFlowControlTokenShared.cs" />
-    <Compile Include="Time.cs" />
-    <Compile Include="TimeRange.cs" />
     <Compile Include="Logging\Tracer.cs" />
     <Compile Include="Useful.cs" />
-    <Compile Include="WPFUseful.cs" />
+    <Compile Include="WPF\WPFUseful.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

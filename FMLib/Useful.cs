@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using FMLib.Collections;
 using FMLib.ExtensionMethods;
 using IWshRuntimeLibrary;
 
@@ -17,7 +18,8 @@ namespace Utils
     #region Parsing
 
     /// <summary>
-    /// Removes comments from line
+    /// <para/>Removes comments from line
+    /// <para/>Do not throw.
     /// </summary>
     public static string DeleteComments(string line)
     {
@@ -42,7 +44,8 @@ namespace Utils
     }
 
     /// <summary>
-    /// Parses time string (-2.5ms). May throw.
+    /// <para/>Parses time string (-2.5ms).
+    /// <para/>May throw.
     /// </summary>
     public static TimeSpan ParseTimeSpan(string timeRaw)
     {
@@ -82,24 +85,13 @@ namespace Utils
     }
 
     /// <summary>
-    /// Parses time range in format: "-xx.xxS:yy.yyH". May throw.
-    /// </summary>
-    public static (Time start, Time duration) ParseTimeRange(string value)
-    {
-      if (value.IsNullOrWhiteSpace()) { throw new ExpectedException($"string is empty"); }
-
-      List<string> split = value.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries).ToList();
-      if (split.Count == 1) { split.Insert(0, "0s"); } // if only duration component is specified
-      if (split.Count == 2) { return (new Time(split[0]), new Time(split[1])); }
-      throw new ExpectedException($"Duration parsing failed. Wrong amount of arguments({split.Count}) in line({value})");
-    }
-
-    /// <summary>
-    /// Parses string in format: Event type: RECORD_SET_MATERIAL; Primary token: LOADER_COM; Event time: 10-Apr-19 16:25:56 +03:00; client: 8; Event Id: 808259564590012;
+    /// <para/>Parses string in format: Event type: RECORD_SET_MATERIAL; Primary token: LOADER_COM; Event time: 10-Apr-19 16:25:56 +03:00; client: 8; Event Id: 808259564590012;
+    /// <para/>Do not throw.
     /// </summary>
     public static List<Tuple<string, string>> SplitTwice(string target, char sep1, char sep2)
     {
       List<Tuple<string, string>> result = new List<Tuple<string, string>>();
+      if (target == null) { return result; }
       var split1 = target.Split(new[] { sep1 }, StringSplitOptions.RemoveEmptyEntries);
       foreach (var e in split1)
       {
@@ -116,7 +108,7 @@ namespace Utils
     /// <para/>Ignore commas and braces if in quotes (', ")
     /// <para/>Do not throw
     /// </summary>
-    public static List<string> SplitParameters(string line, Error error)
+    public static List<string> SplitParameters(string line, DataTree<string> error)
     {
       line = line.Trim();
       var result = new List<string>();

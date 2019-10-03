@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using FMLib.Collections;
 using FMLib.ExtensionMethods;
 
 namespace Utils
@@ -60,21 +61,22 @@ namespace Utils
     /// <summary>
     /// Gets structured content
     /// </summary>
-    public Error Get()
+    public DataTree<string> Get()
     {
-      Error result = new Error();
+      DataTree<string> result = new DataTree<string>($"Documentation for {Name}: {Description}");
       if (Examples.Count == 1) { result.Add($"Example: {Examples[0]}"); }
       if (Examples.Count > 1)
       {
-        Error example = new Error("Examples:");
-        Examples.ForEach(x => example.SubErrors.Add(new Error(x)));
+        DataTree<string> example = new DataTree<string>("Examples:");
+        Examples.ForEach(x => example.Add(x));
         result.Add(example);
+        //string s = result.ToString();
       }
       if (!Default.IsNullOrWhiteSpace()) { result.Add($"Default: {Default}"); }
       if (!PossibleValues.IsNullOrWhiteSpace()) { result.Add($"PossibleValues: {PossibleValues}"); }
       if (!Remark.IsNullOrWhiteSpace()) { result.Add($"Remarks: {Remark}"); }
 
-      return new Error($"Documentation for {Name}: {Description}", result);
+      return result;
     }
 
     /// <summary>
@@ -82,13 +84,13 @@ namespace Utils
     /// </summary>
     public override string ToString()
     {
-      return ToString(Error.DELIMETER, Error.INTEND);
+      return ToString(DataTree<string>.DELIMETER, DataTree<string>.INTEND);
     }
 
     /// <summary>
     /// ToString
     /// </summary>
-    public string ToString(string delimeter = Error.DELIMETER, string intend = Error.INTEND)
+    public string ToString(string delimeter = DataTree<string>.DELIMETER, string intend = DataTree<string>.INTEND)
     {
       return Get().ToString(delimeter, intend);
     }
