@@ -1,4 +1,4 @@
-﻿namespace FMLib.ReferenceData
+﻿namespace Utils.ReferenceData
 {
   /// <summary>
   /// Class representing group in ReferenceData

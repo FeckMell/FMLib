@@ -5,26 +5,17 @@
   /// </summary>
   public struct Flag
   {
-
-    #region Fields
-
     /// <summary>
     /// Flag value
     /// </summary>
     private bool m_flag;
 
-    #endregion
-
-    #region Constructors and Destructors
+    #region Public methods
 
     /// <summary>
     /// Bool implicit operator. To use that class instance as bool
     /// </summary>
     public static implicit operator bool(Flag flag) => flag.m_flag;
-
-    #endregion
-
-    #region Public methods
 
     /// <summary>
     /// Returns value of flag and then sets it to true

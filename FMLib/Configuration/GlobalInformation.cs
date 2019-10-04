@@ -1,8 +1,7 @@
 ﻿using System;
 using System.IO;
-using Utils;
 
-namespace FMLib.Configuration
+namespace Utils.Configuration
 {
   /// <summary>
   /// Class containing information needed for correct application work

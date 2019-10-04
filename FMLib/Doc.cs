@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
-using FMLib.Collections;
-using FMLib.ExtensionMethods;
+using Utils.Collections;
+using Utils.ExtensionMethods;
 
 namespace Utils
 {
@@ -70,7 +70,6 @@ namespace Utils
         DataTree<string> example = new DataTree<string>("Examples:");
         Examples.ForEach(x => example.Add(x));
         result.Add(example);
-        //string s = result.ToString();
       }
       if (!Default.IsNullOrWhiteSpace()) { result.Add($"Default: {Default}"); }
       if (!PossibleValues.IsNullOrWhiteSpace()) { result.Add($"PossibleValues: {PossibleValues}"); }

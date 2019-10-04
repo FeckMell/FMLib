@@ -4,11 +4,10 @@ using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Text.RegularExpressions;
-using FMLib.ExtensionMethods;
-using Utils;
+using Utils.ExtensionMethods;
 using Utils.Logging;
 
-namespace FMLib.Configuration
+namespace Utils.Configuration
 {
   public static class MachineInformation
   {

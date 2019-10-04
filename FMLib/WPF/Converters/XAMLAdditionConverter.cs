@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Markup;
 
-namespace FMLib.WPF.Converters
+namespace Utils.WPF.Converters
 {
   /// <summary>
   /// Converter to allow binding parameters with addition to value

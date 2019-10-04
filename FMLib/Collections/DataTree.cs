@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using FMLib.ExtensionMethods;
+using Utils.ExtensionMethods;
 
-namespace FMLib.Collections
+namespace Utils.Collections
 {
   /// <summary>
   /// Collection of elements represented as tree
@@ -66,7 +66,7 @@ namespace FMLib.Collections
     public DataTree(T value) : this(value, null) { }
 
     /// <summary>
-    /// Constructor from nodes. Do not use as copy constructor! Use <see cref="FMLib.ExtensionMethods.ExtensionsObject.Clone{T}(T)"/>
+    /// Constructor from nodes. Do not use as copy constructor! Use <see cref="Utils.ExtensionMethods.ExtensionsObject.Clone{T}(T)"/>
     /// <para/>Tries to fill higher data first.
     /// </summary>
     public DataTree(DataTree<T> node) : this(null, node) { }

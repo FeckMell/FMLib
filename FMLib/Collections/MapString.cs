@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using FMLib.ExtensionMethods;
-using Utils;
+using Utils.ExtensionMethods;
 
-namespace FMLib.Collections
+namespace Utils.Collections
 {
   /// <summary>
   /// Class representing mapping strings values to T element

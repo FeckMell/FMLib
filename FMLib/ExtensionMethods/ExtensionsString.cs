@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace FMLib.ExtensionMethods
+namespace Utils.ExtensionMethods
 {
   /// <summary>
   /// Extensions to work with <see cref="string"/>

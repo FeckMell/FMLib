@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
-using FMLib.Collections;
-using FMLib.ExtensionMethods;
+using Utils.Collections;
+using Utils.ExtensionMethods;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Test_FMLib.Collections

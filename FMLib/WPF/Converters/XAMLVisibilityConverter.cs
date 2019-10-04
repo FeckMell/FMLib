@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Data;
 using System.Windows.Markup;
 
-namespace FMLib.WPF.Converters
+namespace Utils.WPF.Converters
 {
   /// <summary>
   /// Converter to allow binding parameters with multiplier on value
@@ -23,6 +23,7 @@ namespace FMLib.WPF.Converters
     /// </summary>
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
+      if (!(value is bool)) { value = value != null; }
       bool val = value == null ? false : (bool)value;
       val = "!".Equals(parameter) ? !val : val;
       return val ? Visibility.Visible : Visibility.Collapsed;

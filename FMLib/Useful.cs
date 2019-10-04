@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using FMLib.Collections;
-using FMLib.ExtensionMethods;
 using IWshRuntimeLibrary;
+using Utils.Collections;
+using Utils.ExtensionMethods;
 
 namespace Utils
 {

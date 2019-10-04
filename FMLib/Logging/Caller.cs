@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
-using FMLib.ExtensionMethods;
+using Utils.ExtensionMethods;
 
 namespace Utils.Logging
 {

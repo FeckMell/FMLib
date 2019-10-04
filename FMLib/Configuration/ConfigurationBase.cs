@@ -1,8 +1,8 @@
 ﻿using System.IO;
-using FMLib.ExtensionMethods;
 using Newtonsoft.Json;
+using Utils.ExtensionMethods;
 
-namespace FMLib.Configuration
+namespace Utils.Configuration
 {
   /// <summary>
   /// Base class for configurations.

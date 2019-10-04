@@ -1,4 +1,4 @@
-﻿namespace FMLib.ReferenceData
+﻿namespace Utils.ReferenceData
 {
   /// <summary>
   /// Activity states of <see cref="IAttribute"/>

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace FMLib.ReferenceData
+namespace Utils.ReferenceData
 {
   /// <summary>
   /// Class representing data reference store

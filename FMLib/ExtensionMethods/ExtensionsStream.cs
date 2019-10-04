@@ -1,5 +1,5 @@
 ﻿using System.Text;
-using FMLib.ExtensionMethods;
+using Utils.ExtensionMethods;
 
 namespace System.IO
 {

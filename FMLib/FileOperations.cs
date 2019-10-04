@@ -2,11 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using FMLib.Collections;
-using FMLib.ExtensionMethods;
-using Utils;
+using Utils.Collections;
+using Utils.ExtensionMethods;
 
-namespace FMLib
+namespace Utils
 {
   /// <summary>
   /// Class contains common file operations for Simulator

@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using FMLib.Configuration;
+using Utils.Configuration;
 using Newtonsoft.Json;
 
-namespace FMLib.ExtensionMethods
+namespace Utils.ExtensionMethods
 {
   /// <summary>
   /// Extension methods for any type in project

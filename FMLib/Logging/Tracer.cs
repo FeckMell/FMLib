@@ -4,9 +4,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using FMLib;
-using FMLib.Collections;
-using FMLib.ExtensionMethods;
+using Utils.Collections;
+using Utils.ExtensionMethods;
 
 namespace Utils.Logging
 {

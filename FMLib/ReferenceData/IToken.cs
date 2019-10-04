@@ -1,4 +1,4 @@
-﻿namespace FMLib.ReferenceData
+﻿namespace Utils.ReferenceData
 {
   /// <summary>
   /// Most low-level parent for all ReferenceData structure

@@ -5,9 +5,6 @@
   /// </summary>
   public static class Constants
   {
-
-    #region Utilities constants
-
     /// <summary>
     /// Prefix of property definitions
     /// </summary>
@@ -17,8 +14,5 @@
     /// Window title height
     /// </summary>
     public const int WINDOW_TITLE_HEIGHT = 39;
-
-    #endregion
-
   }
 }

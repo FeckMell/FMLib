@@ -1,4 +1,4 @@
-﻿namespace FMLib.Collections
+﻿namespace Utils.Collections
 {
   /// <summary>
   /// Class for making any type nullable

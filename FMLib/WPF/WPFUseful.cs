@@ -1,6 +1,6 @@
 ﻿using System.Windows;
 
-namespace FMLib
+namespace Utils
 {
   /// <summary>
   /// Some methods that can be useful for WPF
