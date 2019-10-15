@@ -72,6 +72,8 @@
     <Compile Include="Flag.cs" />
     <Compile Include="Logging\MMTracer.cs" />
     <Compile Include="Collections\MapString.cs" />
+    <Compile Include="ReadWriteLocker.cs" />
+    <Compile Include="WPF\ColorController.cs" />
     <Compile Include="WPF\Converters\XAMLVisibilityConverter.cs" />
     <Compile Include="WPF\Converters\XAMLMultiplyConverter.cs" />
     <Compile Include="WPF\Converters\XAMLAdditionConverter.cs" />
